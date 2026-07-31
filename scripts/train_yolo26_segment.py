@@ -87,6 +87,7 @@ names: ['CCCD_BACK', 'CCCD_FRONT', 'CHIP_BACK', 'CHIP_FRONT', 'CMND_BACK', 'CMND
     print("=== LOGGING IN TO WANDB ===")
     api_key = os.environ.get("WANDB_API_KEY")
     if api_key:
+        api_key = api_key.strip().strip('"').strip("'")
         wandb.login(key=api_key)
     else:
         print("Warning: WANDB_API_KEY environment variable not found. Logging in via cached credentials or prompting...")
