@@ -1,0 +1,7 @@
+# YOLO Training & Roboflow Dataset Download Dependencies
+# Install via: pip install -r requirements_train.txt
+
+ultralytics>=8.4.113
+roboflow>=1.4.0
+wandb>=0.28.1
+python-dotenv>=1.2.2

@@ -1,0 +1,35 @@
+# Virtual environment and credentials
+venv/
+.venv/
+ENV/
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and Notebook config files
+.vscode/
+.idea/
+.jupyter/
+.jupyter_ystore.db
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Data, Models and Logs
+data/
+model/
+logs/
+*.log
+*.pt
+wandb/
+
+# Large documents to keep repo lightweight
+doc/**/*.pdf
+doc/**/*.epub
+doc/**/*.pptx
+doc/*.pdf
+doc/*.epub
+doc/*.pptx

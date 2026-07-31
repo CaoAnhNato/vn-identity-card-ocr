@@ -1,0 +1,286 @@
+{
+    "input_path": "..\\..\\data\\raw\\mc_ocr\\mcocr_public\\mcocr_train_data\\train_images\\mcocr_public_145013adyee.jpg",
+    "page_index": null,
+    "page_count": null,
+    "width": 768,
+    "height": 1024,
+    "model_settings": {
+        "use_doc_preprocessor": false,
+        "use_layout_detection": true,
+        "use_chart_recognition": false,
+        "use_seal_recognition": false,
+        "use_ocr_for_image_block": false,
+        "format_block_content": false,
+        "merge_layout_blocks": true,
+        "markdown_ignore_labels": [
+            "number",
+            "footnote",
+            "header",
+            "header_image",
+            "footer",
+            "footer_image",
+            "aside_text"
+        ],
+        "return_layout_polygon_points": true
+    },
+    "parsing_res_list": [
+        {
+            "block_label": "doc_title",
+            "block_content": "MINIMART ANAN\nChợ Sửi Phú Thị Gia Lâm",
+            "block_bbox": [
+                292,
+                377,
+                493,
+                426
+            ],
+            "block_id": 0,
+            "block_order": 1,
+            "group_id": 0,
+            "block_polygon_points": [
+                [
+                    292.0,
+                    377.0
+                ],
+                [
+                    493.0,
+                    377.0
+                ],
+                [
+                    493.0,
+                    426.0
+                ],
+                [
+                    292.0,
+                    426.0
+                ]
+            ]
+        },
+        {
+            "block_label": "table",
+            "block_content": "<table><tr><td colspan=\"4\">HẠO ĐƠN BẢN HÀNG</td></tr><tr><td>Tên hàng</td><td>SL ĐVT</td><td>Đơn giá</td><td>Thành tiền</td></tr><tr><td>8934988020021</td><td>Dầu simply 1L NT</td><td></td><td></td></tr><tr><td>1</td><td>CHA</td><td>45,000</td><td>45,000</td></tr><tr><td>291032310000</td><td>kẹo socola cá xinh viết thá NO</td><td></td><td></td></tr><tr><td>1</td><td>HOP</td><td>26,000</td><td>26,000</td></tr><tr><td>8992760223015</td><td>Bánh OREO 137g NT</td><td></td><td></td></tr><tr><td>2</td><td>CAY</td><td>13,000</td><td>26,000</td></tr><tr><td>291038440000</td><td>kẹo ty ty to 70g NO</td><td></td><td></td></tr><tr><td>1</td><td>HOP</td><td>10,000</td><td>10,000</td></tr><tr><td>Tổng số:</td><td>5</td><td></td><td></td></tr><tr><td>Tổng cộng :</td><td></td><td></td><td>107,000</td></tr><tr><td>Tiến khách trả:</td><td>VND</td><td></td><td>107,000</td></tr></table>",
+            "block_bbox": [
+                186,
+                473,
+                594,
+                825
+            ],
+            "block_id": 1,
+            "block_order": null,
+            "group_id": 1,
+            "block_polygon_points": [
+                [
+                    186.0,
+                    473.0
+                ],
+                [
+                    594.0,
+                    473.0
+                ],
+                [
+                    594.0,
+                    825.0
+                ],
+                [
+                    186.0,
+                    825.0
+                ]
+            ]
+        },
+        {
+            "block_label": "text",
+            "block_content": "Số GD: 000AB2212008002343 Ngày: 09/08/2020-17:23",
+            "block_bbox": [
+                208,
+                826,
+                586,
+                857
+            ],
+            "block_id": 2,
+            "block_order": 2,
+            "group_id": 2,
+            "block_polygon_points": [
+                [
+                    208.0204315185547,
+                    824.9215698242188
+                ],
+                [
+                    585.2637939453125,
+                    832.0618286132812
+                ],
+                [
+                    584.7266235351562,
+                    860.4428100585938
+                ],
+                [
+                    207.48326110839844,
+                    853.3025512695312
+                ]
+            ]
+        },
+        {
+            "block_label": "text",
+            "block_content": "Thu ngân: BH5",
+            "block_bbox": [
+                338,
+                855,
+                451,
+                876
+            ],
+            "block_id": 3,
+            "block_order": 3,
+            "group_id": 3,
+            "block_polygon_points": [
+                [
+                    338.0,
+                    855.0
+                ],
+                [
+                    338.0,
+                    870.0
+                ],
+                [
+                    350.0,
+                    875.0
+                ],
+                [
+                    450.0,
+                    875.0
+                ],
+                [
+                    450.0,
+                    855.0
+                ]
+            ]
+        }
+    ],
+    "layout_det_res": {
+        "input_path": null,
+        "page_index": null,
+        "boxes": [
+            {
+                "cls_id": 6,
+                "label": "doc_title",
+                "score": 0.704131007194519,
+                "coordinate": [
+                    292,
+                    377,
+                    493,
+                    426
+                ],
+                "order": 1,
+                "polygon_points": [
+                    [
+                        292.0,
+                        377.0
+                    ],
+                    [
+                        493.0,
+                        377.0
+                    ],
+                    [
+                        493.0,
+                        426.0
+                    ],
+                    [
+                        292.0,
+                        426.0
+                    ]
+                ]
+            },
+            {
+                "cls_id": 21,
+                "label": "table",
+                "score": 0.5080381035804749,
+                "coordinate": [
+                    186,
+                    473,
+                    594,
+                    825
+                ],
+                "order": null,
+                "polygon_points": [
+                    [
+                        186.0,
+                        473.0
+                    ],
+                    [
+                        594.0,
+                        473.0
+                    ],
+                    [
+                        594.0,
+                        825.0
+                    ],
+                    [
+                        186.0,
+                        825.0
+                    ]
+                ]
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.5821128487586975,
+                "coordinate": [
+                    208,
+                    826,
+                    586,
+                    857
+                ],
+                "order": 2,
+                "polygon_points": [
+                    [
+                        208.0204315185547,
+                        824.9215698242188
+                    ],
+                    [
+                        585.2637939453125,
+                        832.0618286132812
+                    ],
+                    [
+                        584.7266235351562,
+                        860.4428100585938
+                    ],
+                    [
+                        207.48326110839844,
+                        853.3025512695312
+                    ]
+                ]
+            },
+            {
+                "cls_id": 22,
+                "label": "text",
+                "score": 0.5052886605262756,
+                "coordinate": [
+                    338,
+                    855,
+                    451,
+                    876
+                ],
+                "order": 3,
+                "polygon_points": [
+                    [
+                        338.0,
+                        855.0
+                    ],
+                    [
+                        338.0,
+                        870.0
+                    ],
+                    [
+                        350.0,
+                        875.0
+                    ],
+                    [
+                        450.0,
+                        875.0
+                    ],
+                    [
+                        450.0,
+                        855.0
+                    ]
+                ]
+            }
+        ]
+    }
+}
