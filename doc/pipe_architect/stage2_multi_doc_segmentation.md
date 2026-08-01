@@ -53,4 +53,39 @@ flowchart TD
 
 ---
 
+## 5. QUÁ TRÌNH HUẤN LUYỆN MODEL & DỮ LIỆU (MODEL TRAINING & DATASET)
+
+Thành phần phân đoạn ảnh giấy tờ sử dụng mô hình học sâu Instance Segmentation được huấn luyện dựa trên bộ dữ liệu và cấu hình chi tiết dưới đây:
+
+### 5.1. Dữ liệu Huấn Luyện (Dataset)
+- **Nguồn dữ liệu**: Bộ dữ liệu được lưu trữ và quản lý trực tiếp trên nền tảng **Roboflow**.
+  - **Workspace**: `loganqin`
+  - **Project**: `id-card-8apvj` (Phiên bản v1)
+  - **Tên thư mục lưu cục bộ**: `data/raw/ID-card-1`
+- **Định dạng dữ liệu**: Định dạng nhãn Polygon phân đoạn đối tượng tương thích với YOLOv8/YOLOv11/YOLO26 (`yolo26` format).
+- **Cấu trúc phân mục**: 
+  - `train/images/` & `train/labels/`: Tập ảnh và nhãn dùng cho huấn luyện.
+  - `val/images/` & `val/labels/`: Tập ảnh và nhãn dùng cho kiểm thử và đánh giá (Validation).
+
+### 5.2. Kiến Trúc Model & Tham Số Huấn Luyện
+- **Kiến trúc mạng (Model Architecture)**: Sử dụng mô hình phân đoạn thực thể **YOLO26m-seg** (hoặc bản siêu nhẹ **YOLO26n-seg**) cho hiệu năng tối ưu trên GPU di động và máy tính xách tay.
+- **Tham số cấu hình chính (Training Hyperparameters)**:
+  - **Kích thước ảnh đầu vào (Input Size)**: `640x640` pixel (sử dụng kỹ thuật letterbox tự động để bảo toàn tỷ lệ).
+  - **Kích thước batch (Batch size)**: `16`.
+  - **Tổng số epoch tối đa**: `100` epoch (tích hợp cơ chế dừng sớm `patience=50` để chống overfitting).
+  - **Đóng Mosaic Augmentation**: Hệ thống tự động vô hiệu hóa chế độ Mosaic ở `10` epoch cuối (từ epoch 91 đến 100) để mô hình hội tụ trên phân phối ảnh thực tế sạch.
+  - **Giám sát chất lượng (Validation Fitness)**:
+    $$\text{Fitness} = 0.1 \times \text{mAP50(Box)} + 0.9 \times \text{mAP50-95(Box)} + 0.1 \times \text{mAP50(Mask)} + 0.9 \times \text{mAP50-95(Mask)}$$
+
+### 5.3. Phân Tích Hiệu Năng & Khắc Phục Lỗi Hệ Thống (EDA & Model Improvement)
+Qua phân tích thực tế từ tệp [results.csv](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%203/DocU/model/segmentation/yolo26_seg/results.csv):
+- **Hiện tượng**: Chỉ số đánh giá tập Validation đạt kết quả cực kỳ cao (mAP50-95 đạt ~98%), tuy nhiên khi áp dụng thực tế trên các bức ảnh có ngón tay đè lên thẻ (occlusion) hoặc phông nền phức tạp (ví dụ: lá cây, ngoại cảnh), mô hình vẫn gặp lỗi lẹm viền hoặc nhận diện nhầm nền.
+- **Nguyên nhân**: Sự lệch phân phối dữ liệu (Domain Shift) và hiện tượng rò rỉ dữ liệu (Data Leakage) khi chia tập ngẫu nhiên đối với các ảnh trùng lặp trong bộ dữ liệu gốc.
+- **Giải pháp tối ưu hóa đang áp dụng & đề xuất**:
+  1. **Đơn giản hóa nhãn (Class-Agnostic)**: Chuyển toàn bộ các lớp nhãn đặc thù (`CHIP_FRONT`, `CHIP_BACK`, v.v.) về một lớp chung duy nhất là `card`. Việc nhận diện phân loại thẻ sẽ được gác lại cho bộ lọc OCR hoặc Classifier chuyên biệt ở giai đoạn sau. Điều này giúp mô hình chỉ tập trung học biên dạng hình học của "tấm thẻ".
+  2. **Bổ sung Background âm tính**: Thêm 10% - 15% ảnh ngoại cảnh (lá cây, mặt bàn trống) không chứa thẻ và không gán nhãn vào tập train để hạn chế nhiễu đốm xanh lá.
+  3. **Chuẩn hóa quy trình dán nhãn**: Yêu cầu nhãn vẽ khuyết biên tránh ngón tay một cách đồng bộ để mô hình học được ranh giới rõ ràng giữa da tay và mép thẻ.
+
+---
+
 [⬅️ Quay lại Tài liệu chính OCR Pipeline Architecture](./OCR_Pipeline_Architecture.md)
