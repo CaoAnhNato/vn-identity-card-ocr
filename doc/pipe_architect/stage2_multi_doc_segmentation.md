@@ -23,7 +23,8 @@ flowchart TD
     STEP1 --> STEP2["2. Polygon Contour Approximation & 4-Corner Detection"]
     STEP2 --> STEP3["3. Calculate Perspective Matrix M = cv2.getPerspectiveTransform()"]
     STEP3 --> STEP4["4. Warp Perspective Transformation (Nắn phẳng góc nhìn)"]
-    STEP4 --> STEP5["5. Instantiates List[DocumentInstanceDTO] (Multi-card crops)"]
+    STEP4 --> STEP4b["4b. Orientation Classification (Small CNN Classifier) & Rotation"]
+    STEP4b --> STEP5["5. Instantiates List[DocumentInstanceDTO] (Multi-card crops)"]
     STEP5 --> OUT["List[DocumentInstanceDTO]"]
 ```
 
@@ -37,8 +38,12 @@ flowchart TD
    $$
 
    Trong đó `dst_corners` là khung hình chữ nhật chuẩn tương ứng với kích thước tiêu chuẩn thực tế của loại giấy tờ đó (ví dụ: CCCD chuẩn tỉ lệ 85.6mm x 53.98mm).
-4. **Nắn Phẳng (Warp Perspective)**: Áp dụng $\text{cv2.warpPerspective}(\text{image}, M, (\text{width}, \text{height}))$ để cắt và duỗi phẳng vùng ảnh giấy tờ.
-5. **Khởi Tạo Danh Sách Giấy Tờ**: Đóng gói các ảnh nắn phẳng thu được thành danh sách các đối tượng `DocumentInstanceDTO`.
+4. **Nắn Phẳng (Warp Perspective)**: Áp dụng $\text{cv2.warpPerspective}(\text{image}, M, (\text{width}, \text{height}))$ để cắt và duỗi phẳng vùng ảnh giấy tờ. **Bước này triệt tiêu hoàn toàn các góc xoay nghiêng lẻ (ví dụ: 13 độ, 22.5 độ,...)**.
+4b. **Phân loại hướng & Xoay ảnh (Orientation Correction)**:
+   - Ảnh thẻ sau khi nắn phẳng ở bước 4 có thể nằm ở 1 trong 4 trạng thái xoay chẵn ($0^\circ$, $90^\circ$, $180^\circ$, $270^\circ$).
+   - Hệ thống đưa ảnh qua một **mô hình CNN nhỏ (Small CNN Classifier)** chuyên biệt để phân loại hướng xoay.
+   - Dựa trên kết quả dự đoán của mô hình (ví dụ: xoay ngược $180^\circ$ hoặc xoay dọc $90^\circ$), hệ thống áp dụng các phép xoay chẵn của OpenCV (`cv2.rotate`) để đưa chữ về đúng chiều đọc tuần tự từ trái sang phải ($0^\circ$).
+5. **Khởi Tạo Danh Sách Giấy Tờ**: Đóng gói các ảnh nắn phẳng và đã xoay đúng chiều thu được thành danh sách các đối tượng `DocumentInstanceDTO`.
 
 ---
 
