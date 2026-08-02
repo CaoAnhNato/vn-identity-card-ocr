@@ -24,6 +24,8 @@ custom_transforms = [
     A.GaussianBlur(blur_limit=(3, 5), p=0.2),
     A.GaussNoise(p=0.1),
     A.RandomShadow(p=0.2),
+    # Occlusion transform (simulating fingers or obstacles covering parts of the card)
+    A.CoarseDropout(max_holes=4, max_height=40, max_width=40, min_holes=1, min_height=15, min_width=15, fill_value=0, p=0.3),
 ]
 
 def parse_args():
