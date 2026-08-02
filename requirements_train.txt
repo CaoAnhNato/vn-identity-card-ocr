@@ -5,3 +5,5 @@ ultralytics>=8.4.113
 roboflow>=1.4.0
 wandb>=0.28.1
 python-dotenv>=1.2.2
+albumentations>=2.0.8
+
