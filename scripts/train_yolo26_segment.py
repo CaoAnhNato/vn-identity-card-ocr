@@ -25,7 +25,13 @@ custom_transforms = [
     A.GaussNoise(p=0.1),
     A.RandomShadow(p=0.2),
     # Occlusion transform (simulating fingers or obstacles covering parts of the card)
-    A.CoarseDropout(max_holes=4, max_height=40, max_width=40, min_holes=1, min_height=15, min_width=15, fill_value=0, p=0.3),
+    A.CoarseDropout(
+        num_holes_range=(1, 3),
+        hole_height_range=(0.08, 0.25),
+        hole_width_range=(0.05, 0.20),
+        fill=0,
+        p=0.3
+    ),
 ]
 
 def parse_args():
@@ -210,6 +216,8 @@ names: ['card']
         exist_ok=True,
         # On-the-fly Albumentations pipeline
         augmentations=custom_transforms,
+        # Cache images in RAM for maximum training speed
+        cache=True,
         # Disable native geometric/color augmentations since Albumentations handles them
         degrees=0.0,
         translate=0.0,
@@ -223,7 +231,32 @@ names: ['card']
         hsv_v=0.0
     )
     
-    # 6. Finish wandb run
+    # 6. Upload model weights and evaluation curves/charts to WandB
+    save_dir = os.path.join(base_dir, "model", "segmentation", run_name)
+    if os.path.exists(save_dir):
+        print("=== UPLOADING VAL/TEST ARTIFACTS TO WANDB ===")
+        # 1. Upload best.pt
+        best_weights_path = os.path.join(save_dir, "weights", "best.pt")
+        if os.path.exists(best_weights_path):
+            print(f"Uploading best model weights: {best_weights_path}")
+            wandb.save(best_weights_path, base_path=save_dir)
+        else:
+            print("Warning: best.pt weights file not found for upload.")
+            
+        # 2. Upload evaluation charts/curves (PNG files)
+        for filename in os.listdir(save_dir):
+            if filename.lower().endswith(".png"):
+                filepath = os.path.join(save_dir, filename)
+                print(f"Uploading evaluation chart: {filename}")
+                curve_name = os.path.splitext(filename)[0]
+                # Log as interactive image panel in WandB workspace
+                wandb.log({f"curves/{curve_name}": wandb.Image(filepath)})
+                # Save file directly under run files
+                wandb.save(filepath, base_path=save_dir)
+    else:
+        print(f"Warning: save_dir not found at {save_dir}")
+        
+    # 7. Finish wandb run
     run.finish()
     print("=== TRAINING COMPLETED SUCCESSFULLY ===")
 
