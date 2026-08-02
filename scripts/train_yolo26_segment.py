@@ -7,11 +7,24 @@ load_dotenv() # Load variables from .env
 
 import wandb
 from ultralytics import YOLO
+import albumentations as A
 
 # Ensure UTF-8 output encoding for Windows console
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
+
+# Recommended on-the-fly Albumentations pipeline for card segmentation
+custom_transforms = [
+    A.SafeRotate(limit=30, p=0.5),
+    A.ShiftScaleRotate(shift_limit=0.06, scale_limit=0.1, rotate_limit=15, p=0.5),
+    A.Perspective(scale=(0.05, 0.1), keep_size=True, p=0.3),
+    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+    A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05, p=0.3),
+    A.GaussianBlur(blur_limit=(3, 5), p=0.2),
+    A.GaussNoise(p=0.1),
+    A.RandomShadow(p=0.2),
+]
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train YOLO26 instance segmentation model with custom W&B logging.")
@@ -37,19 +50,27 @@ def train(args):
         model_name = args.model
         run_name = f"{args.name}_test"
         
-        # Create a single-image dataset dynamically for testing
+        # Create a single-image dataset dynamically for testing from the merged dataset
         print("=== PREPARING SINGLE-IMAGE DATASET ===")
-        single_dataset_dir = os.path.join(base_dir, "data", "raw", "ID-card-1", "single_image_dataset")
+        single_dataset_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "single_image_dataset")
         os.makedirs(os.path.join(single_dataset_dir, "images", "train"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "images", "val"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "labels", "train"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "labels", "val"), exist_ok=True)
 
-        image_name = "01d3ee89-dfe6-49c4-a9ba-ab5f388a77f5-2022-06-03T04-42-31-409Z_jpg.rf.0d15a9215ee00e5602d4a417ad7b187e.jpg"
-        label_name = "01d3ee89-dfe6-49c4-a9ba-ab5f388a77f5-2022-06-03T04-42-31-409Z_jpg.rf.0d15a9215ee00e5602d4a417ad7b187e.txt"
+        merged_train_img_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "train", "images")
+        merged_train_lbl_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "train", "labels")
+        
+        train_imgs = [x for x in os.listdir(merged_train_img_dir) if x.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp'))]
+        if not train_imgs:
+            raise FileNotFoundError("No images found in merged_roboflow_dataset/train/images to run test.")
+            
+        image_name = train_imgs[0]
+        base_name, _ = os.path.splitext(image_name)
+        label_name = f"{base_name}.txt"
 
-        src_image = os.path.join(base_dir, "data", "raw", "ID-card-1", "train", "images", image_name)
-        src_label = os.path.join(base_dir, "data", "raw", "ID-card-1", "train", "labels", label_name)
+        src_image = os.path.join(merged_train_img_dir, image_name)
+        src_label = os.path.join(merged_train_lbl_dir, label_name)
 
         shutil.copy2(src_image, os.path.join(single_dataset_dir, "images", "train", image_name))
         shutil.copy2(src_image, os.path.join(single_dataset_dir, "images", "val", image_name))
@@ -60,8 +81,8 @@ def train(args):
 train: images/train
 val: images/val
 
-nc: 7
-names: ['CCCD_BACK', 'CCCD_FRONT', 'CHIP_BACK', 'CHIP_FRONT', 'CMND_BACK', 'CMND_FRONT', 'PASSPORT']
+nc: 1
+names: ['card']
 """
         data_yaml_path = os.path.join(single_dataset_dir, "data.yaml")
         with open(data_yaml_path, "w", encoding="utf-8") as f:
@@ -75,7 +96,7 @@ names: ['CCCD_BACK', 'CCCD_FRONT', 'CHIP_BACK', 'CHIP_FRONT', 'CMND_BACK', 'CMND
         workers = 4
         model_name = args.model
         run_name = args.name
-        data_yaml_path = os.path.join(base_dir, "data", "raw", "ID-card-1", "data.yaml")
+        data_yaml_path = os.path.join(base_dir, "data", "merged_roboflow_dataset", "data.yaml")
 
     print(f"Data config path: {data_yaml_path}")
     print(f"Model: {model_name}")
@@ -184,7 +205,20 @@ names: ['CCCD_BACK', 'CCCD_FRONT', 'CHIP_BACK', 'CHIP_FRONT', 'CMND_BACK', 'CMND
         patience=args.patience,
         project=os.path.join(base_dir, "model", "segmentation"),
         name=run_name,
-        exist_ok=True
+        exist_ok=True,
+        # On-the-fly Albumentations pipeline
+        augmentations=custom_transforms,
+        # Disable native geometric/color augmentations since Albumentations handles them
+        degrees=0.0,
+        translate=0.0,
+        scale=0.0,
+        shear=0.0,
+        perspective=0.0,
+        flipud=0.0,
+        fliplr=0.0,
+        hsv_h=0.0,
+        hsv_s=0.0,
+        hsv_v=0.0
     )
     
     # 6. Finish wandb run
