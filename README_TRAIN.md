@@ -29,10 +29,18 @@ echo "WANDB_API_KEY=your_wandb_api_key_here" > .env
 *(Note: W&B is used to log training loss, learning rate, precision, recall, mAP, and F1 scores).*
 
 ### Step 3: Download the Dataset
-The raw dataset is hosted on Roboflow. Run the download script to automatically download it into `data/raw/ID-card-1`:
+The combined card and negative background dataset is hosted on Roboflow. Run the download script to automatically download and map it into `data/merged_roboflow_dataset`:
 ```bash
 python scripts/download_dataset.py
 ```
+*(Note: Empty background/negative images are included with corresponding empty `.txt` label files to teach the model to ignore background clutter and eliminate False Positives).*
+
+### Step 4: Estimate GPU VRAM & Optimize Batch Size (Optional)
+Before starting full training, you can run the VRAM estimation script to determine the peak GPU memory usage and choose the optimal batch size for your GPU container:
+```bash
+python scripts/estimate_vram.py --model yolo26n-seg.pt --imgsz 640
+```
+This script will output the base model size, peak allocated memory, and recommended batch sizes.
 
 ---
 
@@ -63,6 +71,7 @@ Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch
 ```bash
 python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 -n yolo26_cccd_run1
 ```
+*(Note: Images are cached in RAM (`cache=True`) for maximum data loading speed).*
 
 ---
 
@@ -71,6 +80,7 @@ python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 -n y
 1. **W&B Live Dashboard**:
    - Metrics are uploaded in real-time. Only essential charts (losses, mAPs, precision, recall, learning rate, F1 score) are logged to minimize noise.
    - Standard console logs are captured and synced to the W&B **Logs** tab automatically.
+   - At the end of training, the model's best weights (`best.pt`) and evaluation charts (e.g. `BoxF1_curve.png`, `MaskF1_curve.png`, etc.) are automatically uploaded directly to the W&B Run Files and Media workspace.
 2. **Local Output**:
    - Model weights and plots are saved locally under `model/segmentation/<run_name>/`.
    - Pretrained/Best weights are located at `model/segmentation/<run_name>/weights/best.pt`.
