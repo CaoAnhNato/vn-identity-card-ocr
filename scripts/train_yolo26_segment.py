@@ -8,6 +8,49 @@ load_dotenv() # Load variables from .env
 import wandb
 from ultralytics import YOLO
 import albumentations as A
+import random
+
+# Monkey-patch Albumentations to pass instance segmentation masks to custom transforms
+from ultralytics.data.augment import Albumentations
+import cv2
+
+original_albumentations_call = Albumentations.__call__
+
+def patched_albumentations_call(self, labels):
+    if self.transform is None or random.random() > self.p:
+        return labels
+
+    im = labels["img"]
+    if im.shape[2] != 3:  # Only apply Albumentation on 3-channel images
+        return labels
+
+    # Reconstruct binary mask from instances.segments (YOLO instance segmentation)
+    h, w = im.shape[:2]
+    mask = np.zeros((h, w), dtype=np.uint8)
+    
+    instances = labels.get("instances")
+    has_mask = False
+    if instances is not None and hasattr(instances, "segments") and len(instances.segments) > 0:
+        for seg in instances.segments:
+            if np.all(seg == 0):  # Skip empty/padded segments
+                continue
+            pts = seg.copy()
+            if instances.normalized:
+                pts[:, 0] *= w
+                pts[:, 1] *= h
+            pts = pts.astype(np.int32)
+            cv2.fillPoly(mask, [pts], 255)
+            has_mask = True
+
+    if has_mask:
+        new = self.transform(image=im, mask=mask)
+        labels["img"] = new["image"]
+    else:
+        labels["img"] = self.transform(image=im)["image"]
+
+    return labels
+
+Albumentations.__call__ = patched_albumentations_call
 
 # Ensure UTF-8 output encoding for Windows console
 if sys.platform == "win32":
