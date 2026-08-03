@@ -48,6 +48,7 @@ def parse_args():
     parser.add_argument("--freeze", type=int, default=None, help="Number of initial layers to freeze (e.g. 10 to freeze backbone).")
     parser.add_argument("--staged", action="store_true", help="Enable staged training: freeze backbone first, then unfreeze and fine-tune.")
     parser.add_argument("--freeze_epochs", type=int, default=30, help="Number of epochs to train with frozen backbone in staged mode.")
+    parser.add_argument("--optimizer", type=str, default="AdamW", choices=["Adam", "AdamW", "SGD", "RMSProp", "auto"], help="Optimizer to use for training. Defaults to 'AdamW' to prevent lr0 override.")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
 
@@ -235,6 +236,7 @@ names: ['card']
             device=0,
             workers=workers,
             patience=args.patience,
+            optimizer=args.optimizer,
             cos_lr=args.cos_lr,
             freeze=freeze_layers,
             project=os.path.join(base_dir, "model", "segmentation"),
@@ -265,6 +267,7 @@ names: ['card']
             device=0,
             workers=workers,
             patience=args.patience,
+            optimizer=args.optimizer,
             cos_lr=args.cos_lr,
             freeze=None, # Unfreeze all layers
             lr0=0.0002,  # Lower learning rate for fine-tuning
@@ -289,6 +292,7 @@ names: ['card']
             device=0,
             workers=workers,
             patience=args.patience,
+            optimizer=args.optimizer,
             cos_lr=args.cos_lr,
             freeze=args.freeze,
             project=os.path.join(base_dir, "model", "segmentation"),
