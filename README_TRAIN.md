@@ -62,18 +62,18 @@ The training script `scripts/train_yolo26_segment.py` supports standard command-
 
 ### CLI Arguments
 
-| Argument         | Short  | Default              | Description                                                                |
-| :--------------- | :----- | :------------------- | :------------------------------------------------------------------------- |
-| `--model`        | `-m`   | `yolo26n-seg.pt`     | Pretrained YOLO model name or path                                         |
-| `--batch`        | `-b`   | `16`                 | Batch size                                                                 |
-| `--epochs`       | `-e`   | `100`                | Number of training epochs                                                  |
-| `--patience`     | `-p`   | `50`                 | Early stopping patience (epochs of no validation improvement)              |
-| `--cos_lr`       |        | *None*               | Uses cosine learning rate scheduler during training                        |
-| `--freeze`       |        | *None*               | Number of layers to freeze from the beginning (e.g. 10 to freeze backbone) |
-| `--staged`       |        | *None*               | Enables staged training (freeze backbone first, then unfreeze & fine-tune) |
-| `--freeze_epochs`|        | `30`                 | Number of epochs to train with frozen backbone in staged mode              |
-| `--name`         | `-n`   | `yolo26_id_card_seg` | Name of the W&B run and project output directory                           |
-| `--test`         |        | *None*               | Runs a quick test (1 epoch, 1 image, batch=1, workers=1)                   |
+| Argument            | Short  | Default                | Description                                                                |
+| :------------------ | :----- | :--------------------- | :------------------------------------------------------------------------- |
+| `--model`         | `-m` | `yolo26n-seg.pt`     | Pretrained YOLO model name or path                                         |
+| `--batch`         | `-b` | `16`                 | Batch size                                                                 |
+| `--epochs`        | `-e` | `100`                | Number of training epochs                                                  |
+| `--patience`      | `-p` | `50`                 | Early stopping patience (epochs of no validation improvement)              |
+| `--cos_lr`        |        | *None*               | Uses cosine learning rate scheduler during training                        |
+| `--freeze`        |        | *None*               | Number of layers to freeze from the beginning (e.g. 10 to freeze backbone) |
+| `--staged`        |        | *None*               | Enables staged training (freeze backbone first, then unfreeze & fine-tune) |
+| `--freeze_epochs` |        | `30`                 | Number of epochs to train with frozen backbone in staged mode              |
+| `--name`          | `-n` | `yolo26_id_card_seg` | Name of the W&B run and project output directory                           |
+| `--test`          |        | *None*               | Runs a quick test (1 epoch, 1 image, batch=1, workers=1)                   |
 
 ### Examples
 
@@ -90,7 +90,7 @@ python scripts/train_yolo26_segment.py --test
 Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, freeze the backbone (first 10 layers) permanently, and use a cosine learning rate scheduler:
 
 ```bash
-python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 --cos_lr --freeze 10 -n yolo26_cccd_standard
+python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 64 -e 100 -p 20 --cos_lr --freeze 10 -n yolo26_cccd_standard
 ```
 
 #### 3. Staged Training Run (Recommended - Warm-up then Fine-tune)
@@ -98,7 +98,7 @@ python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 --co
 Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, using staged training (Stage 1: freeze backbone for 30 epochs; Stage 2: unfreeze and fine-tune for 70 epochs), and a cosine learning rate scheduler:
 
 ```bash
-python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 --staged --freeze_epochs 30 --cos_lr -n yolo26_cccd_staged
+python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 64 -e 100 -p 20 --staged --freeze_epochs 30 --cos_lr -n yolo26_cccd_staged
 ```
 
 *(Note: Images are cached in RAM (`cache=True`) for maximum data loading speed).*

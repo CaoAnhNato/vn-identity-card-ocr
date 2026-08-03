@@ -14,11 +14,87 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-# Custom CoarseDropout subclass to prevent bounding boxes from being dropped when occluded.
-# This prevents IndexError mismatches in YOLO's segmentation dataloader.
-class SafeCoarseDropout(A.CoarseDropout):
+# Custom Albumentations transform to simulate finger occlusion on the card's edge/boundary
+# This prevents IndexError mismatches in YOLO's dataloader by leaving bboxes/masks unmodified,
+# while drawing black boxes centered on the card boundary to teach the model to segment the entire card.
+import numpy as np
+
+class CardEdgeOcclusion(A.DualTransform):
+    def __init__(self, num_holes_range=(1, 3), hole_height_range=(0.08, 0.25), hole_width_range=(0.05, 0.20), fill=0, p=0.5):
+        super().__init__(p=p)
+        self.num_holes_range = num_holes_range
+        self.hole_height_range = hole_height_range
+        self.hole_width_range = hole_width_range
+        self.fill = fill
+
+    def get_params_dependent_on_data(self, params, data):
+        image = data["image"]
+        h, w = image.shape[:2]
+        num_holes = self.py_random.randint(self.num_holes_range[0], self.num_holes_range[1])
+        holes = []
+        mask = data.get("mask")
+        contour_points = []
+        if mask is not None:
+            import cv2
+            if mask.dtype != np.uint8:
+                mask_bin = (mask > 0.5).astype(np.uint8) * 255
+            else:
+                mask_bin = (mask > 0).astype(np.uint8) * 255
+            contours, _ = cv2.findContours(mask_bin, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for c in contours:
+                for pt in c:
+                    contour_points.append(pt[0])
+        if contour_points:
+            for _ in range(num_holes):
+                idx = self.py_random.randint(0, len(contour_points) - 1)
+                cx, cy = contour_points[idx]
+                min_h = int(self.hole_height_range[0] * h)
+                max_h = int(self.hole_height_range[1] * h)
+                min_w = int(self.hole_width_range[0] * w)
+                max_w = int(self.hole_width_range[1] * w)
+                hole_h = self.py_random.randint(max(1, min_h), max(2, max_h))
+                hole_w = self.py_random.randint(max(1, min_w), max(2, max_w))
+                ymin = max(0, cy - hole_h // 2)
+                ymax = min(h, cy + hole_h // 2)
+                xmin = max(0, cx - hole_w // 2)
+                xmax = min(w, cx + hole_w // 2)
+                holes.append((ymin, ymax, xmin, xmax))
+        else:
+            for _ in range(num_holes):
+                min_h = int(self.hole_height_range[0] * h)
+                max_h = int(self.hole_height_range[1] * h)
+                min_w = int(self.hole_width_range[0] * w)
+                max_w = int(self.hole_width_range[1] * w)
+                hole_h = self.py_random.randint(max(1, min_h), max(2, max_h))
+                hole_w = self.py_random.randint(max(1, min_w), max(2, max_w))
+                cy = self.py_random.randint(hole_h // 2, h - hole_h // 2)
+                cx = self.py_random.randint(hole_w // 2, w - hole_w // 2)
+                ymin = max(0, cy - hole_h // 2)
+                ymax = min(h, cy + hole_h // 2)
+                xmin = max(0, cx - hole_w // 2)
+                xmax = min(w, cx + hole_w // 2)
+                holes.append((ymin, ymax, xmin, xmax))
+        return {"holes": holes}
+
+    def apply(self, img, holes=None, **params):
+        if holes is None:
+            return img
+        img_out = img.copy()
+        for ymin, ymax, xmin, xmax in holes:
+            img_out[ymin:ymax, xmin:xmax] = self.fill
+        return img_out
+
+    def apply_to_mask(self, mask, **params):
+        return mask
+
+    def apply_to_masks(self, masks, **params):
+        return masks
+
     def apply_to_bboxes(self, bboxes, **params):
         return bboxes
+
+    def get_transform_init_args_names(self):
+        return ("num_holes_range", "hole_height_range", "hole_width_range", "fill")
 
 # Recommended on-the-fly Albumentations pipeline for card segmentation (Non-spatial transforms only)
 custom_transforms = [
@@ -27,8 +103,8 @@ custom_transforms = [
     A.GaussianBlur(blur_limit=(3, 5), p=0.2),
     A.GaussNoise(p=0.1),
     A.RandomShadow(p=0.2),
-    # Occlusion transform (simulating fingers or obstacles covering parts of the card)
-    SafeCoarseDropout(
+    # Edge occlusion transform simulating fingers holding the card edges
+    CardEdgeOcclusion(
         num_holes_range=(1, 3),
         hole_height_range=(0.08, 0.25),
         hole_width_range=(0.05, 0.20),
@@ -59,6 +135,7 @@ def train(args):
     # Check if we are running in test mode
     if args.test:
         print("=== RUNNING IN TEST MODE ===")
+        os.environ["WANDB_MODE"] = "offline"
         # Override parameters for fast test run
         epochs = 1
         batch_size = 1
@@ -228,6 +305,8 @@ names: ['card']
         configure_callbacks(model)
         
         freeze_layers = args.freeze if args.freeze is not None else 10
+        # Determine Stage 1 learning rate: 0.002 is optimal for AdamW/Adam in YOLO, 0.01 is for SGD.
+        stage1_lr = 0.002 if args.optimizer in ["Adam", "AdamW"] else 0.01
         model.train(
             data=data_yaml_path,
             epochs=stage1_epochs,
@@ -237,6 +316,7 @@ names: ['card']
             workers=workers,
             patience=args.patience,
             optimizer=args.optimizer,
+            lr0=stage1_lr,
             cos_lr=args.cos_lr,
             freeze=freeze_layers,
             project=os.path.join(base_dir, "model", "segmentation"),
@@ -271,6 +351,7 @@ names: ['card']
             cos_lr=args.cos_lr,
             freeze=None, # Unfreeze all layers
             lr0=0.0002,  # Lower learning rate for fine-tuning
+            warmup_epochs=0.0, # Disable warmup in Stage 2 to prevent bias learning rate spikes
             project=os.path.join(base_dir, "model", "segmentation"),
             name=run_name,
             exist_ok=True,
@@ -284,6 +365,8 @@ names: ['card']
         model = YOLO(model_name)
         configure_callbacks(model)
         
+        # Determine learning rate: 0.002 is optimal for AdamW/Adam in YOLO, 0.01 is for SGD.
+        std_lr = 0.002 if args.optimizer in ["Adam", "AdamW"] else 0.01
         model.train(
             data=data_yaml_path,
             epochs=epochs,
@@ -293,6 +376,7 @@ names: ['card']
             workers=workers,
             patience=args.patience,
             optimizer=args.optimizer,
+            lr0=std_lr,
             cos_lr=args.cos_lr,
             freeze=args.freeze,
             project=os.path.join(base_dir, "model", "segmentation"),
