@@ -55,6 +55,8 @@ The training script `scripts/train_yolo26_segment.py` supports standard command-
 | `--batch` | `-b` | `16` | Batch size |
 | `--epochs` | `-e` | `100` | Number of training epochs |
 | `--patience` | `-p` | `50` | Early stopping patience (epochs of no validation improvement) |
+| `--cos_lr` | | *None* | Uses cosine learning rate scheduler during training |
+| `--freeze` | | *None* | Number of layers to freeze from the beginning (e.g. 10 to freeze backbone) |
 | `--name` | `-n` | `yolo26_id_card_seg` | Name of the W&B run and project output directory |
 | `--test` | | *None* | Runs a quick test (1 epoch, 1 image, batch=1, workers=1) |
 
@@ -66,10 +68,10 @@ Run a quick dry-run with a single image and 1 epoch to ensure GPU, CUDA, and W&B
 python scripts/train_yolo26_segment.py --test
 ```
 
-#### 2. Standard Training Run (Full Dataset)
-Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, and run name `yolo26_cccd_run1`:
+#### 2. Standard Training Run (Full Dataset with Optimization)
+Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, freeze the backbone (first 10 layers), and use a cosine learning rate scheduler:
 ```bash
-python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 -n yolo26_cccd_run1
+python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 16 -e 100 -p 20 --cos_lr --freeze 10 -n yolo26_cccd_run1
 ```
 *(Note: Images are cached in RAM (`cache=True`) for maximum data loading speed).*
 

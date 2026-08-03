@@ -41,6 +41,8 @@ def parse_args():
     parser.add_argument("-e", "--epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("-n", "--name", type=str, default="yolo26_id_card_seg", help="Name of the training run / model saved to W&B.")
     parser.add_argument("-p", "--patience", type=int, default=50, help="Early stopping patience (epochs of no improvement before stopping).")
+    parser.add_argument("--cos_lr", action="store_true", help="Use cosine learning rate scheduler during training.")
+    parser.add_argument("--freeze", type=int, default=None, help="Number of initial layers to freeze (e.g. 10 to freeze backbone).")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
 
@@ -211,6 +213,8 @@ names: ['card']
         device=0,  # GPU 0
         workers=workers,
         patience=args.patience,
+        cos_lr=args.cos_lr,
+        freeze=args.freeze,
         project=os.path.join(base_dir, "model", "segmentation"),
         name=run_name,
         exist_ok=True,
