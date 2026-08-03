@@ -168,6 +168,7 @@ def parse_args():
     parser.add_argument("--staged", action="store_true", help="Enable staged training: freeze backbone first, then unfreeze and fine-tune.")
     parser.add_argument("--freeze_epochs", type=int, default=30, help="Number of epochs to train with frozen backbone in staged mode.")
     parser.add_argument("--optimizer", type=str, default="AdamW", choices=["Adam", "AdamW", "SGD", "RMSProp", "auto"], help="Optimizer to use for training. Defaults to 'AdamW' to prevent lr0 override.")
+    parser.add_argument("--mosaic", type=float, default=0.0, help="Mosaic augmentation probability. Defaults to 0.0.")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
 
@@ -367,6 +368,7 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
+            mosaic=args.mosaic,
             degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
             flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
@@ -400,6 +402,7 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
+            mosaic=args.mosaic,
             degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
             flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
@@ -427,6 +430,7 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
+            mosaic=args.mosaic,
             degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
             flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
