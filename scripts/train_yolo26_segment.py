@@ -14,6 +14,12 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
+# Custom CoarseDropout subclass to prevent bounding boxes from being dropped when occluded.
+# This prevents IndexError mismatches in YOLO's segmentation dataloader.
+class SafeCoarseDropout(A.CoarseDropout):
+    def apply_to_bboxes(self, bboxes, **params):
+        return bboxes
+
 # Recommended on-the-fly Albumentations pipeline for card segmentation (Non-spatial transforms only)
 custom_transforms = [
     A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
@@ -22,7 +28,7 @@ custom_transforms = [
     A.GaussNoise(p=0.1),
     A.RandomShadow(p=0.2),
     # Occlusion transform (simulating fingers or obstacles covering parts of the card)
-    A.CoarseDropout(
+    SafeCoarseDropout(
         num_holes_range=(1, 3),
         hole_height_range=(0.08, 0.25),
         hole_width_range=(0.05, 0.20),
