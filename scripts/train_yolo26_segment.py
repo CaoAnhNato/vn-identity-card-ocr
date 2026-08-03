@@ -43,6 +43,8 @@ def parse_args():
     parser.add_argument("-p", "--patience", type=int, default=50, help="Early stopping patience (epochs of no improvement before stopping).")
     parser.add_argument("--cos_lr", action="store_true", help="Use cosine learning rate scheduler during training.")
     parser.add_argument("--freeze", type=int, default=None, help="Number of initial layers to freeze (e.g. 10 to freeze backbone).")
+    parser.add_argument("--staged", action="store_true", help="Enable staged training: freeze backbone first, then unfreeze and fine-tune.")
+    parser.add_argument("--freeze_epochs", type=int, default=30, help="Number of epochs to train with frozen backbone in staged mode.")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
 
@@ -142,19 +144,11 @@ names: ['card']
 
     print("=== START TRAINING YOLO SEGMENT MODEL ===")
     
-    # Load YOLO segmentation model
-    model = YOLO(model_name)
+    # 4. Define local custom callback function with epoch offset support
+    epoch_offset = [0] # List wrapper to mutate in outer scope
 
-    # 4. Remove default ultralytics wandb callbacks to prevent logging junk files/plots
-    for event, callbacks in model.callbacks.items():
-        model.callbacks[event] = [
-            cb for cb in callbacks
-            if "wandb" not in cb.__module__ and "wandb" not in cb.__name__
-        ]
-
-    # 5. Register custom callback to log only essential metrics to wandb
     def on_fit_epoch_end(trainer):
-        epoch = trainer.epoch + 1
+        epoch = epoch_offset[0] + trainer.epoch + 1
         
         # Extract loss metrics
         tloss = trainer.tloss
@@ -202,38 +196,106 @@ names: ['card']
         wandb.log(log_data)
         print(f"\n[Wandb Logged] Epoch {epoch} Metrics: {log_data}\n")
 
-    model.add_callback("on_fit_epoch_end", on_fit_epoch_end)
-    
-    # Train model
-    results = model.train(
-        data=data_yaml_path,
-        epochs=epochs,
-        imgsz=640,
-        batch=batch_size,
-        device=0,  # GPU 0
-        workers=workers,
-        patience=args.patience,
-        cos_lr=args.cos_lr,
-        freeze=args.freeze,
-        project=os.path.join(base_dir, "model", "segmentation"),
-        name=run_name,
-        exist_ok=True,
-        # On-the-fly Albumentations pipeline
-        augmentations=custom_transforms,
-        # Cache images in RAM for maximum training speed
-        cache=True,
-        # Disable native geometric/color augmentations since Albumentations handles them
-        degrees=0.0,
-        translate=0.0,
-        scale=0.0,
-        shear=0.0,
-        perspective=0.0,
-        flipud=0.0,
-        fliplr=0.0,
-        hsv_h=0.0,
-        hsv_s=0.0,
-        hsv_v=0.0
-    )
+    # Helper function to remove default W&B callbacks and add our custom one
+    def configure_callbacks(m):
+        for event, callbacks in m.callbacks.items():
+            m.callbacks[event] = [
+                cb for cb in callbacks
+                if "wandb" not in cb.__module__ and "wandb" not in cb.__name__
+            ]
+        m.add_callback("on_fit_epoch_end", on_fit_epoch_end)
+
+    # 5. Execute Staged or Standard Training
+    if args.staged:
+        print("=== STAGED TRAINING ENABLED ===")
+        if args.test:
+            stage1_epochs = 1
+            stage2_epochs = 1
+        else:
+            stage1_epochs = args.freeze_epochs
+            stage2_epochs = max(1, epochs - args.freeze_epochs)
+            
+        print(f"Stage 1 (Freeze Backbone): {stage1_epochs} epochs")
+        print(f"Stage 2 (Fine-tuning):      {stage2_epochs} epochs")
+        
+        # --- STAGE 1: Freeze training ---
+        print("\n--- STARTING STAGE 1: Freeze Backbone ---")
+        model = YOLO(model_name)
+        configure_callbacks(model)
+        
+        freeze_layers = args.freeze if args.freeze is not None else 10
+        model.train(
+            data=data_yaml_path,
+            epochs=stage1_epochs,
+            imgsz=640,
+            batch=batch_size,
+            device=0,
+            workers=workers,
+            patience=args.patience,
+            cos_lr=args.cos_lr,
+            freeze=freeze_layers,
+            project=os.path.join(base_dir, "model", "segmentation"),
+            name=run_name,
+            exist_ok=True,
+            augmentations=custom_transforms,
+            cache=True,
+            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
+            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+        )
+        
+        # --- STAGE 2: Fine-tune training ---
+        print("\n--- STARTING STAGE 2: Fine-tuning ---")
+        best_weights_stage1 = os.path.join(base_dir, "model", "segmentation", run_name, "weights", "best.pt")
+        if not os.path.exists(best_weights_stage1):
+            print(f"Warning: Stage 1 weights not found at {best_weights_stage1}, using model name instead.")
+            best_weights_stage1 = model_name
+            
+        model = YOLO(best_weights_stage1)
+        configure_callbacks(model)
+        
+        epoch_offset[0] = stage1_epochs
+        model.train(
+            data=data_yaml_path,
+            epochs=stage2_epochs,
+            imgsz=640,
+            batch=batch_size,
+            device=0,
+            workers=workers,
+            patience=args.patience,
+            cos_lr=args.cos_lr,
+            freeze=None, # Unfreeze all layers
+            lr0=0.0002,  # Lower learning rate for fine-tuning
+            project=os.path.join(base_dir, "model", "segmentation"),
+            name=run_name,
+            exist_ok=True,
+            augmentations=custom_transforms,
+            cache=True,
+            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
+            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+        )
+    else:
+        print("=== STANDARD TRAINING ENABLED ===")
+        model = YOLO(model_name)
+        configure_callbacks(model)
+        
+        model.train(
+            data=data_yaml_path,
+            epochs=epochs,
+            imgsz=640,
+            batch=batch_size,
+            device=0,
+            workers=workers,
+            patience=args.patience,
+            cos_lr=args.cos_lr,
+            freeze=args.freeze,
+            project=os.path.join(base_dir, "model", "segmentation"),
+            name=run_name,
+            exist_ok=True,
+            augmentations=custom_transforms,
+            cache=True,
+            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
+            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+        )
     
     # 6. Upload model weights and evaluation curves/charts to WandB
     save_dir = os.path.join(base_dir, "model", "segmentation", run_name)
