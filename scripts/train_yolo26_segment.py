@@ -14,11 +14,8 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-# Recommended on-the-fly Albumentations pipeline for card segmentation
+# Recommended on-the-fly Albumentations pipeline for card segmentation (Non-spatial transforms only)
 custom_transforms = [
-    A.SafeRotate(limit=30, p=0.5),
-    A.ShiftScaleRotate(shift_limit=0.06, scale_limit=0.1, rotate_limit=15, p=0.5),
-    A.Perspective(scale=(0.05, 0.1), keep_size=True, p=0.3),
     A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
     A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05, p=0.3),
     A.GaussianBlur(blur_limit=(3, 5), p=0.2),
@@ -239,8 +236,8 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
-            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
-            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
+            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
         
         # --- STAGE 2: Fine-tune training ---
@@ -270,8 +267,8 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
-            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
-            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
+            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
     else:
         print("=== STANDARD TRAINING ENABLED ===")
@@ -293,8 +290,8 @@ names: ['card']
             exist_ok=True,
             augmentations=custom_transforms,
             cache=True,
-            degrees=0.0, translate=0.0, scale=0.0, shear=0.0, perspective=0.0,
-            flipud=0.0, fliplr=0.0, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
+            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
         )
     
     # 6. Upload model weights and evaluation curves/charts to WandB
