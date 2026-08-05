@@ -18,7 +18,7 @@ def download():
     print(f"Downloading dataset from Roboflow into: {data_dir}")
     rf = Roboflow(api_key="S0EhROyNMg9SKh5qnTyA")
     project = rf.workspace("detecobject").project("id_card_segment-dv2fc")
-    version = project.version(1)
+    version = project.version(2)
     dataset = version.download("yolo26")
     print("Download completed successfully!")
     print(f"Dataset location: {dataset.location}")
