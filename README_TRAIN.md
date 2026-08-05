@@ -46,83 +46,78 @@ This script will output the base model size, peak allocated memory, and recommen
 
 ---
 
-## 🔄 End-to-End 2-Phase Training Pipeline (Recommended)
+## 🔄 Joint Training on Merged Dataset (Highly Recommended)
 
-To handle domain discrepancy, a sequential two-phase training pipeline is established:
-1. **Phase 1 (Pre-training)**: Train/fine-tune the base YOLO26 segment model on the **Business Card** dataset to learn generic card features and edges.
-2. **Phase 2 (Fine-tuning)**: Fine-tune the best weights from Phase 1 on the **Vietnam ID Card (CCCD)** dataset.
+Training on both **Business Cards** and **ID Cards** simultaneously (Joint Training) is the most robust strategy. This prevents **Scale Shift Bias** (Business Cards occupy 55% area while ID Cards occupy 27%) and **Gradient Interference** that occurs when fine-tuning sequentially.
 
-The script `scripts/train_pipeline.py` handles:
-* Automatically downloading and mapping both datasets from Roboflow if not already downloaded.
-* Fixing paths in `data.yaml` files dynamically.
-* Running Phase 1, saving its best weights, and feeding them as initial weights for Phase 2.
-* Uploading separate runs to Weights & Biases (W&B) for both phases.
+### Step 1: Download & Merge Datasets
 
-### CLI Arguments for Pipeline
-
-| Argument               | Default            | Description                                                     |
-| :--------------------- | :----------------- | :-------------------------------------------------------------- |
-| `-m`, `--model`        | `yolo26n-seg.pt`   | Path or name of starting weights                                |
-| `-b`, `--batch`        | `16`               | Batch size for training                                         |
-| `--epochs_phase1`      | `50`               | Number of epochs for Phase 1 (Business Card)                    |
-| `--epochs_phase2`      | `100`              | Number of epochs for Phase 2 (Vietnam ID Card)                  |
-| `-p`, `--patience`     | `30`               | Early stopping patience                                         |
-| `--cos_lr`             | *None*             | Use cosine learning rate scheduler                              |
-| `--optimizer`          | `AdamW`            | Optimizer (`Adam`, `AdamW`, `SGD`, `RMSProp`, `auto`)           |
-| `--skip_download`      | *None*             | Skip dataset downloading if folders exist                       |
-| `--test`               | *None*             | Runs a quick end-to-end dry-run (1 epoch, 1 image)              |
-
-### Examples
-
-#### 1. Run Pipeline Test (Recommended to verify environment)
-```bash
-python scripts/train_pipeline.py --test
-```
-
-#### 2. Run Full 2-Phase Training
-```bash
-python scripts/train_pipeline.py -m yolo26n-seg.pt -b 32 --epochs_phase1 50 --epochs_phase2 100 --cos_lr
-```
-
----
-
-## 💡 Running Only Phase 2 (Fine-tuning again)
-
-If your **Phase 1 (Pre-training)** achieved good results, but you want to fine-tune **Phase 2 (ID Card)** again with different settings (e.g., higher epochs, lower learning rate, or different batch size), you **do not need to re-run the entire pipeline**.
-
-You can run `scripts/train_yolo26_segment.py` directly, passing the best weights of Phase 1 to the `--model` argument:
-
-```bash
-python scripts/train_yolo26_segment.py \
-  --model model/segmentation/yolo26_business_card_pretrain/weights/best.pt \
-  --data data/id_cards_dataset/data.yaml \
-  --name yolo26_id_card_finetune_v2 \
-  --project ID_Card_VN \
-  --epochs 100 \
-  --batch 32 \
-  --cos_lr
-```
-
----
-
-## 📊 Legacy / Alternative: Single-Phase Training
-
-If you need to train on the legacy single merged dataset (`data/merged_roboflow_dataset`):
-
-### 1. Download Legacy Dataset
+Run the download script to fetch and combine the datasets into `data/merged_roboflow_dataset`:
 ```bash
 python scripts/download_dataset.py
 ```
 
-### 2. Run Single-Phase Training
+### Step 2: Run Joint Training
+
+Train the model using the optimized hyperparameters (Medium model, disabled custom Albumentations, default YOLO spatial scaling):
+
 ```bash
 python scripts/train_yolo26_segment.py \
-  --model yolo26n-seg.pt \
+  --model yolo26m-seg.pt \
   --data data/merged_roboflow_dataset/data.yaml \
-  --name yolo26_id_card_seg \
-  --epochs 100 \
-  --batch 16
+  --name yolo26m_joint_training \
+  --epochs 150 \
+  --batch 16 \
+  --no_custom_aug \
+  --mosaic 1.0 \
+  --degrees 0.0 \
+  --scale 0.5 \
+  --translate 0.1 \
+  --perspective 0.0
 ```
+
+*Note: The `--test` flag can be appended to run a 1-epoch dry-run test on a single image to verify your setup.*
+
+---
+
+## 🛠️ CLI Arguments for `train_yolo26_segment.py`
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `-m`, `--model` | `yolo26n-seg.pt` | Path or name of YOLO model weights (e.g. `yolo26m-seg.pt`). |
+| `-b`, `--batch` | `16` | Batch size for training. |
+| `-e`, `--epochs` | `100` | Number of training epochs (100–150 recommended for joint training). |
+| `-n`, `--name` | `yolo26_id_card_seg` | Name of the training run / model saved to W&B. |
+| `-d`, `--data` | *None* | Path to dataset `data.yaml` configuration. |
+| `--project` | `ID_Card_VN` | W&B project name to log metrics under. |
+| `-p`, `--patience` | `50` | Early stopping patience (epochs of no improvement before stopping training). |
+| `--cos_lr` | *False* | Flag to use cosine learning rate scheduler during training. |
+| `--optimizer` | `AdamW` | Optimizer to use (`Adam`, `AdamW`, `SGD`, `RMSProp`, `auto`). |
+| `--freeze` | *None* | Number of initial layers to freeze (e.g., `10` to freeze the backbone). |
+| `--staged` | *False* | Flag to enable staged training: freeze backbone first, then unfreeze and fine-tune. |
+| `--freeze_epochs` | `30` | Number of epochs to train with frozen backbone in staged mode. |
+| `--no_custom_aug` | *False* | Flag to disable custom Albumentations (falls back to default YOLOv8/v11 augmentations). |
+| `--mosaic` | `0.2` | Mosaic augmentation probability (set to `1.0` or `0.5` for joint training). |
+| `--degrees` | `0.0` | Rotation angle in degrees (keep at `0.0` to prevent bounding box phình to). |
+| `--scale` | `0.5` | Scale factor for zoom augmentation (keep at `0.5` to bridge 2x card scale difference). |
+| `--translate` | `0.1` | Translation factor. |
+| `--perspective` | `0.0` | Perspective transformation factor. |
+| `--hsv_h` | `0.015` | HSV Hue gain. |
+| `--hsv_s` | `0.7` | HSV Saturation gain. |
+| `--hsv_v` | `0.4` | HSV Value gain. |
+| `--test` | *False* | Flag to run a quick training test with exactly 1 image and 1 epoch. |
+
+---
+
+## 📊 Legacy / Alternative: 2-Phase Training Pipeline
+
+If you still need to run sequential pre-training on Business Cards followed by fine-tuning on ID Cards, you can run:
+
+```bash
+python scripts/train_pipeline.py -m yolo26m-seg.pt -b 16 --epochs_phase1 50 --epochs_phase2 100
+```
+*Caution: Sequential training can lead to representation collapse and scale bias on the second phase due to the drastic difference in card sizes.*
+
 
 ---
 

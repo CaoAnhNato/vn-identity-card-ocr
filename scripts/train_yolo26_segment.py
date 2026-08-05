@@ -171,12 +171,30 @@ def parse_args():
     parser.add_argument("--freeze_epochs", type=int, default=30, help="Number of epochs to train with frozen backbone in staged mode.")
     parser.add_argument("--optimizer", type=str, default="AdamW", choices=["Adam", "AdamW", "SGD", "RMSProp", "auto"], help="Optimizer to use for training. Defaults to 'AdamW' to prevent lr0 override.")
     parser.add_argument("--mosaic", type=float, default=0.2, help="Mosaic augmentation probability. Defaults to 0.2.")
+    parser.add_argument("--degrees", type=float, default=0.0, help="Rotation degrees for augmentation. Defaults to 0.0.")
+    parser.add_argument("--scale", type=float, default=0.5, help="Scale factor for augmentation. Defaults to 0.5.")
+    parser.add_argument("--translate", type=float, default=0.1, help="Translation factor for augmentation. Defaults to 0.1.")
+    parser.add_argument("--perspective", type=float, default=0.0, help="Perspective factor for augmentation. Defaults to 0.0.")
+    parser.add_argument("--hsv_h", type=float, default=0.015, help="HSV Hue gain. Defaults to 0.015.")
+    parser.add_argument("--hsv_s", type=float, default=0.7, help="HSV Saturation gain. Defaults to 0.7.")
+    parser.add_argument("--hsv_v", type=float, default=0.4, help="HSV Value gain. Defaults to 0.4.")
+    parser.add_argument("--no_custom_aug", action="store_true", help="Disable custom Albumentations augmentations.")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
+
 
 def train(args):
     # Base directory of project
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # Determine if custom augmentations should be used
+    if args.no_custom_aug:
+        print("=== Custom Albumentations augmentations DISABLED ===")
+        active_transforms = None
+    else:
+        print("=== Custom Albumentations augmentations ENABLED ===")
+        active_transforms = custom_transforms
+
     
     # Determine the data.yaml path first
     if args.data:
@@ -380,11 +398,11 @@ names: ['card']
             project=os.path.join(base_dir, "model", "segmentation"),
             name=run_name,
             exist_ok=True,
-            augmentations=custom_transforms,
+            augmentations=active_transforms,
             cache=True,
             mosaic=args.mosaic,
-            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
-            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=args.degrees, translate=args.translate, scale=args.scale, shear=0.0, perspective=args.perspective,
+            flipud=0.0, fliplr=0.5, hsv_h=args.hsv_h, hsv_s=args.hsv_s, hsv_v=args.hsv_v
         )
         
         # --- STAGE 2: Fine-tune training ---
@@ -414,11 +432,11 @@ names: ['card']
             project=os.path.join(base_dir, "model", "segmentation"),
             name=run_name,
             exist_ok=True,
-            augmentations=custom_transforms,
+            augmentations=active_transforms,
             cache=True,
             mosaic=args.mosaic,
-            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
-            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=args.degrees, translate=args.translate, scale=args.scale, shear=0.0, perspective=args.perspective,
+            flipud=0.0, fliplr=0.5, hsv_h=args.hsv_h, hsv_s=args.hsv_s, hsv_v=args.hsv_v
         )
     else:
         print("=== STANDARD TRAINING ENABLED ===")
@@ -442,11 +460,11 @@ names: ['card']
             project=os.path.join(base_dir, "model", "segmentation"),
             name=run_name,
             exist_ok=True,
-            augmentations=custom_transforms,
+            augmentations=active_transforms,
             cache=True,
             mosaic=args.mosaic,
-            degrees=30.0, translate=0.06, scale=0.1, shear=0.0, perspective=0.05,
-            flipud=0.0, fliplr=0.5, hsv_h=0.0, hsv_s=0.0, hsv_v=0.0
+            degrees=args.degrees, translate=args.translate, scale=args.scale, shear=0.0, perspective=args.perspective,
+            flipud=0.0, fliplr=0.5, hsv_h=args.hsv_h, hsv_s=args.hsv_s, hsv_v=args.hsv_v
         )
     
     # 6. Upload model weights and evaluation curves/charts to WandB
