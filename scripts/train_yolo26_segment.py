@@ -179,6 +179,7 @@ def parse_args():
     parser.add_argument("--hsv_s", type=float, default=0.7, help="HSV Saturation gain. Defaults to 0.7.")
     parser.add_argument("--hsv_v", type=float, default=0.4, help="HSV Value gain. Defaults to 0.4.")
     parser.add_argument("--no_custom_aug", action="store_true", help="Disable custom Albumentations augmentations.")
+    parser.add_argument("--workers", type=int, default=8, help="Number of worker threads for data loading.")
     parser.add_argument("--test", action="store_true", help="Run a quick training test with exactly 1 image and 1 epoch.")
     return parser.parse_args()
 
@@ -263,7 +264,7 @@ names: ['card']
         print("=== RUNNING IN STANDARD TRAINING MODE ===")
         epochs = args.epochs
         batch_size = args.batch
-        workers = 4
+        workers = args.workers
         model_name = args.model
         run_name = args.name
 
