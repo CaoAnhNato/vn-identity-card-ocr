@@ -26,6 +26,7 @@ def parse_pipeline_args():
     parser.add_argument("-p", "--patience", type=int, default=30, help="Patience for early stopping.")
     parser.add_argument("--cos_lr", action="store_true", help="Use cosine learning rate scheduler.")
     parser.add_argument("--optimizer", type=str, default="AdamW", choices=["Adam", "AdamW", "SGD", "RMSProp", "auto"], help="Optimizer.")
+    parser.add_argument("--mosaic", type=float, default=0.2, help="Mosaic augmentation probability. Defaults to 0.2.")
     parser.add_argument("--skip_download", action="store_true", help="Skip downloading datasets if folders exist.")
     parser.add_argument("--test", action="store_true", help="Run a quick 1-epoch pipeline test on 1 image.")
     return parser.parse_args()
@@ -165,7 +166,7 @@ def main():
         staged=False,
         freeze_epochs=30,
         optimizer=args.optimizer,
-        mosaic=0.0,
+        mosaic=args.mosaic,
         test=args.test
     )
     
@@ -202,7 +203,7 @@ def main():
         staged=False,
         freeze_epochs=30,
         optimizer=args.optimizer,
-        mosaic=0.0,
+        mosaic=args.mosaic,
         test=args.test
     )
     
