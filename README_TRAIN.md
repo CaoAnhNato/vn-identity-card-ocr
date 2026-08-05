@@ -1,6 +1,6 @@
 # YOLO Instance Segmentation Training Guide
 
-This guide describes how to set up the environment, download the dataset, and train the YOLO26 instance segmentation model on a GPU container (Docker, runpod, vast.ai, etc.).
+This guide describes how to set up the environment, download datasets, and train the YOLO26 instance segmentation model on a GPU container (Docker, runpod, vast.ai, etc.).
 
 ---
 
@@ -24,7 +24,7 @@ Run the following command to install only the training and dataset downloading p
 pip install -r requirements_train.txt
 ```
 
-### Step 2: Configure environment Variables
+### Step 2: Configure Environment Variables
 
 Create a `.env` file in the project root directory and add your Weights & Biases API key:
 
@@ -34,17 +34,7 @@ echo "WANDB_API_KEY=your_wandb_api_key_here" > .env
 
 *(Note: W&B is used to log training loss, learning rate, precision, recall, mAP, and F1 scores).*
 
-### Step 3: Download the Dataset
-
-The combined card and negative background dataset is hosted on Roboflow. Run the download script to automatically download and map it into `data/merged_roboflow_dataset`:
-
-```bash
-python scripts/download_dataset.py
-```
-
-*(Note: Empty background/negative images are included with corresponding empty `.txt` label files to teach the model to ignore background clutter and eliminate False Positives).*
-
-### Step 4: Estimate GPU VRAM & Optimize Batch Size (Optional)
+### Step 3: Estimate GPU VRAM & Optimize Batch Size (Optional)
 
 Before starting full training, you can run the VRAM estimation script to determine the peak GPU memory usage and choose the optimal batch size for your GPU container:
 
@@ -56,52 +46,83 @@ This script will output the base model size, peak allocated memory, and recommen
 
 ---
 
-## 🏋️ Training the Model
+## 🔄 End-to-End 2-Phase Training Pipeline (Recommended)
 
-The training script `scripts/train_yolo26_segment.py` supports standard command-line arguments:
+To handle domain discrepancy, a sequential two-phase training pipeline is established:
+1. **Phase 1 (Pre-training)**: Train/fine-tune the base YOLO26 segment model on the **Business Card** dataset to learn generic card features and edges.
+2. **Phase 2 (Fine-tuning)**: Fine-tune the best weights from Phase 1 on the **Vietnam ID Card (CCCD)** dataset.
 
-### CLI Arguments
+The script `scripts/train_pipeline.py` handles:
+* Automatically downloading and mapping both datasets from Roboflow if not already downloaded.
+* Fixing paths in `data.yaml` files dynamically.
+* Running Phase 1, saving its best weights, and feeding them as initial weights for Phase 2.
+* Uploading separate runs to Weights & Biases (W&B) for both phases.
 
-| Argument            | Short  | Default                | Description                                                                |
-| :------------------ | :----- | :--------------------- | :------------------------------------------------------------------------- |
-| `--model`         | `-m` | `yolo26n-seg.pt`     | Pretrained YOLO model name or path                                         |
-| `--batch`         | `-b` | `16`                 | Batch size                                                                 |
-| `--epochs`        | `-e` | `100`                | Number of training epochs                                                  |
-| `--patience`      | `-p` | `50`                 | Early stopping patience (epochs of no validation improvement)              |
-| `--cos_lr`        |        | *None*               | Uses cosine learning rate scheduler during training                        |
-| `--freeze`        |        | *None*               | Number of layers to freeze from the beginning (e.g. 10 to freeze backbone) |
-| `--staged`        |        | *None*               | Enables staged training (freeze backbone first, then unfreeze & fine-tune) |
-| `--freeze_epochs` |        | `30`                 | Number of epochs to train with frozen backbone in staged mode              |
-| `--name`          | `-n` | `yolo26_id_card_seg` | Name of the W&B run and project output directory                           |
-| `--test`          |        | *None*               | Runs a quick test (1 epoch, 1 image, batch=1, workers=1)                   |
+### CLI Arguments for Pipeline
+
+| Argument               | Default            | Description                                                     |
+| :--------------------- | :----------------- | :-------------------------------------------------------------- |
+| `-m`, `--model`        | `yolo26n-seg.pt`   | Path or name of starting weights                                |
+| `-b`, `--batch`        | `16`               | Batch size for training                                         |
+| `--epochs_phase1`      | `50`               | Number of epochs for Phase 1 (Business Card)                    |
+| `--epochs_phase2`      | `100`              | Number of epochs for Phase 2 (Vietnam ID Card)                  |
+| `-p`, `--patience`     | `30`               | Early stopping patience                                         |
+| `--cos_lr`             | *None*             | Use cosine learning rate scheduler                              |
+| `--optimizer`          | `AdamW`            | Optimizer (`Adam`, `AdamW`, `SGD`, `RMSProp`, `auto`)           |
+| `--skip_download`      | *None*             | Skip dataset downloading if folders exist                       |
+| `--test`               | *None*             | Runs a quick end-to-end dry-run (1 epoch, 1 image)              |
 
 ### Examples
 
-#### 1. Quick Pipeline Test (Recommended before starting full train)
-
-Run a quick dry-run with a single image and 1 epoch to ensure GPU, CUDA, and W&B logging are configured correctly:
-
+#### 1. Run Pipeline Test (Recommended to verify environment)
 ```bash
-python scripts/train_yolo26_segment.py --test
+python scripts/train_pipeline.py --test
 ```
 
-#### 2. Standard Training Run (Backbone Frozen Permanently)
-
-Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, freeze the backbone (first 10 layers) permanently, and use a cosine learning rate scheduler:
-
+#### 2. Run Full 2-Phase Training
 ```bash
-python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 64 -e 100 -p 20 --cos_lr --freeze 10 -n yolo26_cccd_standard
+python scripts/train_pipeline.py -m yolo26n-seg.pt -b 32 --epochs_phase1 50 --epochs_phase2 100 --cos_lr
 ```
 
-#### 3. Staged Training Run (Recommended - Warm-up then Fine-tune)
+---
 
-Train a `YOLO26n-seg` model for 100 epochs, early-stopping patience of 20, batch size of 16, using staged training (Stage 1: freeze backbone for 30 epochs; Stage 2: unfreeze and fine-tune for 70 epochs), and a cosine learning rate scheduler:
+## 💡 Running Only Phase 2 (Fine-tuning again)
+
+If your **Phase 1 (Pre-training)** achieved good results, but you want to fine-tune **Phase 2 (ID Card)** again with different settings (e.g., higher epochs, lower learning rate, or different batch size), you **do not need to re-run the entire pipeline**.
+
+You can run `scripts/train_yolo26_segment.py` directly, passing the best weights of Phase 1 to the `--model` argument:
 
 ```bash
-python scripts/train_yolo26_segment.py -m yolo26n-seg.pt -b 64 -e 100 -p 20 --staged --freeze_epochs 30 --cos_lr -n yolo26_cccd_staged
+python scripts/train_yolo26_segment.py \
+  --model model/segmentation/yolo26_business_card_pretrain/weights/best.pt \
+  --data data/id_cards_dataset/data.yaml \
+  --name yolo26_id_card_finetune_v2 \
+  --project ID_Card_VN \
+  --epochs 100 \
+  --batch 32 \
+  --cos_lr
 ```
 
-*(Note: Images are cached in RAM (`cache=True`) for maximum data loading speed).*
+---
+
+## 📊 Legacy / Alternative: Single-Phase Training
+
+If you need to train on the legacy single merged dataset (`data/merged_roboflow_dataset`):
+
+### 1. Download Legacy Dataset
+```bash
+python scripts/download_dataset.py
+```
+
+### 2. Run Single-Phase Training
+```bash
+python scripts/train_yolo26_segment.py \
+  --model yolo26n-seg.pt \
+  --data data/merged_roboflow_dataset/data.yaml \
+  --name yolo26_id_card_seg \
+  --epochs 100 \
+  --batch 16
+```
 
 ---
 

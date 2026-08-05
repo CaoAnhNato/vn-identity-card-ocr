@@ -26,4 +26,6 @@ pyclipper>=1.3.0
 # --- Data Manipulation & Utilities ---
 pandas
 wandb
+streamlit
+
 

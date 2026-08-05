@@ -162,6 +162,8 @@ def parse_args():
     parser.add_argument("-b", "--batch", type=int, default=16, help="Batch size for training.")
     parser.add_argument("-e", "--epochs", type=int, default=100, help="Number of training epochs.")
     parser.add_argument("-n", "--name", type=str, default="yolo26_id_card_seg", help="Name of the training run / model saved to W&B.")
+    parser.add_argument("-d", "--data", type=str, default=None, help="Path to data.yaml file.")
+    parser.add_argument("--project", type=str, default="ID_Card_VN", help="W&B project name.")
     parser.add_argument("-p", "--patience", type=int, default=50, help="Early stopping patience (epochs of no improvement before stopping).")
     parser.add_argument("--cos_lr", action="store_true", help="Use cosine learning rate scheduler during training.")
     parser.add_argument("--freeze", type=int, default=None, help="Number of initial layers to freeze (e.g. 10 to freeze backbone).")
@@ -176,6 +178,12 @@ def train(args):
     # Base directory of project
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
+    # Determine the data.yaml path first
+    if args.data:
+        data_yaml_path = os.path.abspath(args.data)
+    else:
+        data_yaml_path = os.path.join(base_dir, "data", "merged_roboflow_dataset", "data.yaml")
+
     # Check if we are running in test mode
     if args.test:
         print("=== RUNNING IN TEST MODE ===")
@@ -187,20 +195,21 @@ def train(args):
         model_name = args.model
         run_name = f"{args.name}_test"
         
-        # Create a single-image dataset dynamically for testing from the merged dataset
+        # Create a single-image dataset dynamically for testing
+        dataset_dir = os.path.dirname(data_yaml_path)
         print("=== PREPARING SINGLE-IMAGE DATASET ===")
-        single_dataset_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "single_image_dataset")
+        single_dataset_dir = os.path.join(dataset_dir, "single_image_dataset")
         os.makedirs(os.path.join(single_dataset_dir, "images", "train"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "images", "val"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "labels", "train"), exist_ok=True)
         os.makedirs(os.path.join(single_dataset_dir, "labels", "val"), exist_ok=True)
 
-        merged_train_img_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "train", "images")
-        merged_train_lbl_dir = os.path.join(base_dir, "data", "merged_roboflow_dataset", "train", "labels")
+        merged_train_img_dir = os.path.join(dataset_dir, "train", "images")
+        merged_train_lbl_dir = os.path.join(dataset_dir, "train", "labels")
         
         train_imgs = [x for x in os.listdir(merged_train_img_dir) if x.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp'))]
         if not train_imgs:
-            raise FileNotFoundError("No images found in merged_roboflow_dataset/train/images to run test.")
+            raise FileNotFoundError(f"No images found in {merged_train_img_dir} to run test.")
             
         image_name = train_imgs[0]
         base_name, _ = os.path.splitext(image_name)
@@ -211,8 +220,14 @@ def train(args):
 
         shutil.copy2(src_image, os.path.join(single_dataset_dir, "images", "train", image_name))
         shutil.copy2(src_image, os.path.join(single_dataset_dir, "images", "val", image_name))
-        shutil.copy2(src_label, os.path.join(single_dataset_dir, "labels", "train", label_name))
-        shutil.copy2(src_label, os.path.join(single_dataset_dir, "labels", "val", label_name))
+        if os.path.exists(src_label):
+            shutil.copy2(src_label, os.path.join(single_dataset_dir, "labels", "train", label_name))
+            shutil.copy2(src_label, os.path.join(single_dataset_dir, "labels", "val", label_name))
+        else:
+            with open(os.path.join(single_dataset_dir, "labels", "train", label_name), "w") as lf:
+                pass
+            with open(os.path.join(single_dataset_dir, "labels", "val", label_name), "w") as lf:
+                pass
 
         data_yaml_content = f"""path: {single_dataset_dir.replace(os.sep, '/')}
 train: images/train
@@ -233,7 +248,6 @@ names: ['card']
         workers = 4
         model_name = args.model
         run_name = args.name
-        data_yaml_path = os.path.join(base_dir, "data", "merged_roboflow_dataset", "data.yaml")
 
     print(f"Data config path: {data_yaml_path}")
     print(f"Model: {model_name}")
@@ -254,12 +268,12 @@ names: ['card']
     print("=== INITIALIZING WANDB RUN ===")
     run = wandb.init(
         entity="caoanhdoan130605-ho-chi-minh-city-university-of-industry",
-        project="ID_Card_VN",
+        project=args.project,
         name=run_name,
         config={
             "learning_rate": 0.01,
             "architecture": model_name,
-            "dataset": "ID_Card_VN" if not args.test else "ID_Card_VN_Single_Image",
+            "dataset": args.project if not args.test else f"{args.project}_Single_Image",
             "epochs": epochs,
             "batch_size": batch_size,
             "patience": args.patience,
