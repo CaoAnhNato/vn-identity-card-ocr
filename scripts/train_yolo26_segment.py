@@ -272,7 +272,7 @@ names: ['card']
         name=run_name,
         config={
             "learning_rate": 0.01,
-            "architecture": model_name,
+            "architecture": os.path.basename(model_name) if not ("/" in model_name or "\\" in model_name) else f"Fine-tuned ({os.path.basename(os.path.dirname(os.path.dirname(model_name)))})",
             "dataset": args.project if not args.test else f"{args.project}_Single_Image",
             "epochs": epochs,
             "batch_size": batch_size,
